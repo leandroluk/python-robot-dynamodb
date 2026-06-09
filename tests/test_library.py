@@ -181,3 +181,24 @@ class TestBulkOps:
         lib.batch_write_dynamodb_items("orders", [])
 
         batch.put_item.assert_not_called()
+
+
+class TestAssertions:
+    def test_item_should_exist_returns_item_when_found(self, lib, mock_table):
+        mock_table.get_item.return_value = {"Item": {"id": "1"}}
+        result = lib.item_should_exist_in_dynamodb("orders", {"id": "1"})
+        assert result == {"id": "1"}
+
+    def test_item_should_exist_raises_when_missing(self, lib, mock_table):
+        mock_table.get_item.return_value = {}
+        with pytest.raises(AssertionError, match="not found"):
+            lib.item_should_exist_in_dynamodb("orders", {"id": "999"})
+
+    def test_item_should_not_exist_passes_when_missing(self, lib, mock_table):
+        mock_table.get_item.return_value = {}
+        lib.item_should_not_exist_in_dynamodb("orders", {"id": "999"})
+
+    def test_item_should_not_exist_raises_when_found(self, lib, mock_table):
+        mock_table.get_item.return_value = {"Item": {"id": "1"}}
+        with pytest.raises(AssertionError, match="should not exist"):
+            lib.item_should_not_exist_in_dynamodb("orders", {"id": "1"})

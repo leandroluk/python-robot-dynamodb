@@ -138,3 +138,24 @@ class DynamoDbLibrary:
         with table.batch_writer() as batch:
             for item in items:
                 batch.put_item(Item=item)
+
+    @keyword
+    def item_should_exist_in_dynamodb(
+        self, table_name: str, key: dict[str, Any]
+    ) -> dict[str, Any]:
+        item = self.get_dynamodb_item(table_name, key)
+        if item is None:
+            full = f"{self._table_prefix}{table_name}{self._table_postfix}"
+            raise AssertionError(f"Item {key} not found in table '{full}'")
+        return item
+
+    @keyword
+    def item_should_not_exist_in_dynamodb(
+        self, table_name: str, key: dict[str, Any]
+    ) -> None:
+        item = self.get_dynamodb_item(table_name, key)
+        if item is not None:
+            full = f"{self._table_prefix}{table_name}{self._table_postfix}"
+            raise AssertionError(
+                f"Item {key} found in table '{full}' but should not exist"
+            )
