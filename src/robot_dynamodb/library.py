@@ -100,3 +100,23 @@ class DynamoDbLibrary:
     @keyword
     def delete_dynamodb_item(self, table_name: str, key: dict[str, Any]) -> None:
         self._table(table_name).delete_item(Key=key)
+
+    @keyword
+    def scan_dynamodb_table(self, table_name: str) -> list[dict[str, Any]]:
+        return self._table(table_name).scan().get("Items", [])
+
+    @keyword
+    def query_dynamodb_table(
+        self,
+        table_name: str,
+        key_condition_expression: str,
+        expression_attribute_values: dict[str, Any],
+        expression_attribute_names: dict[str, str] | None = None,
+    ) -> list[dict[str, Any]]:
+        kwargs: dict[str, Any] = {
+            "KeyConditionExpression": key_condition_expression,
+            "ExpressionAttributeValues": expression_attribute_values,
+        }
+        if expression_attribute_names:
+            kwargs["ExpressionAttributeNames"] = expression_attribute_names
+        return self._table(table_name).query(**kwargs).get("Items", [])

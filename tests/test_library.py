@@ -99,3 +99,37 @@ class TestCRUD:
     def test_delete_item(self, lib, mock_table):
         lib.delete_dynamodb_item("orders", {"id": "1"})
         mock_table.delete_item.assert_called_once_with(Key={"id": "1"})
+
+
+class TestScanQuery:
+    def test_scan_returns_items(self, lib, mock_table):
+        mock_table.scan.return_value = {"Items": [{"id": "1"}, {"id": "2"}]}
+        result = lib.scan_dynamodb_table("orders")
+        mock_table.scan.assert_called_once_with()
+        assert result == [{"id": "1"}, {"id": "2"}]
+
+    def test_scan_returns_empty_list_when_no_items(self, lib, mock_table):
+        mock_table.scan.return_value = {}
+        assert lib.scan_dynamodb_table("orders") == []
+
+    def test_query_without_names(self, lib, mock_table):
+        mock_table.query.return_value = {"Items": [{"id": "1"}]}
+        result = lib.query_dynamodb_table("orders", "id = :id", {":id": "1"})
+        mock_table.query.assert_called_once_with(
+            KeyConditionExpression="id = :id",
+            ExpressionAttributeValues={":id": "1"},
+        )
+        assert result == [{"id": "1"}]
+
+    def test_query_with_names(self, lib, mock_table):
+        mock_table.query.return_value = {"Items": []}
+        lib.query_dynamodb_table("orders", "#id = :id", {":id": "1"}, {"#id": "id"})
+        mock_table.query.assert_called_once_with(
+            KeyConditionExpression="#id = :id",
+            ExpressionAttributeValues={":id": "1"},
+            ExpressionAttributeNames={"#id": "id"},
+        )
+
+    def test_query_returns_empty_list_when_no_items(self, lib, mock_table):
+        mock_table.query.return_value = {}
+        assert lib.query_dynamodb_table("orders", "id = :id", {":id": "x"}) == []
