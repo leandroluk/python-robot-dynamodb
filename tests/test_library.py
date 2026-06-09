@@ -55,3 +55,47 @@ class TestConnection:
     def test_table_name_uses_prefix_and_postfix(self, lib):
         lib._table("orders")
         lib._resource.Table.assert_called_with("test_orders_v1")
+
+
+class TestCRUD:
+    def test_create_item_calls_put_and_returns_item(self, lib, mock_table):
+        item = {"id": "1", "name": "test"}
+        result = lib.create_dynamodb_item("orders", item)
+        lib._resource.Table.assert_called_with("test_orders_v1")
+        mock_table.put_item.assert_called_once_with(Item=item)
+        assert result == item
+
+    def test_get_item_returns_item(self, lib, mock_table):
+        mock_table.get_item.return_value = {"Item": {"id": "1"}}
+        result = lib.get_dynamodb_item("orders", {"id": "1"})
+        mock_table.get_item.assert_called_once_with(Key={"id": "1"})
+        assert result == {"id": "1"}
+
+    def test_get_item_returns_none_when_missing(self, lib, mock_table):
+        mock_table.get_item.return_value = {}
+        assert lib.get_dynamodb_item("orders", {"id": "999"}) is None
+
+    def test_update_item_without_names(self, lib, mock_table):
+        mock_table.update_item.return_value = {}
+        lib.update_dynamodb_item("orders", {"id": "1"}, "SET #s = :s", {":s": "shipped"})
+        mock_table.update_item.assert_called_once_with(
+            Key={"id": "1"},
+            UpdateExpression="SET #s = :s",
+            ExpressionAttributeValues={":s": "shipped"},
+        )
+
+    def test_update_item_with_names(self, lib, mock_table):
+        mock_table.update_item.return_value = {}
+        lib.update_dynamodb_item(
+            "orders", {"id": "1"}, "SET #s = :s", {":s": "ok"}, {"#s": "status"}
+        )
+        mock_table.update_item.assert_called_once_with(
+            Key={"id": "1"},
+            UpdateExpression="SET #s = :s",
+            ExpressionAttributeValues={":s": "ok"},
+            ExpressionAttributeNames={"#s": "status"},
+        )
+
+    def test_delete_item(self, lib, mock_table):
+        lib.delete_dynamodb_item("orders", {"id": "1"})
+        mock_table.delete_item.assert_called_once_with(Key={"id": "1"})

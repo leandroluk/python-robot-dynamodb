@@ -69,3 +69,34 @@ class DynamoDbLibrary:
         self._resource = None
         self._table_prefix = ""
         self._table_postfix = ""
+
+    @keyword
+    def create_dynamodb_item(self, table_name: str, item: dict[str, Any]) -> dict[str, Any]:
+        self._table(table_name).put_item(Item=item)
+        return item
+
+    @keyword
+    def get_dynamodb_item(self, table_name: str, key: dict[str, Any]) -> dict[str, Any] | None:
+        return self._table(table_name).get_item(Key=key).get("Item")
+
+    @keyword
+    def update_dynamodb_item(
+        self,
+        table_name: str,
+        key: dict[str, Any],
+        update_expression: str,
+        expression_attribute_values: dict[str, Any],
+        expression_attribute_names: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
+        kwargs: dict[str, Any] = {
+            "Key": key,
+            "UpdateExpression": update_expression,
+            "ExpressionAttributeValues": expression_attribute_values,
+        }
+        if expression_attribute_names:
+            kwargs["ExpressionAttributeNames"] = expression_attribute_names
+        return self._table(table_name).update_item(**kwargs)
+
+    @keyword
+    def delete_dynamodb_item(self, table_name: str, key: dict[str, Any]) -> None:
+        self._table(table_name).delete_item(Key=key)
