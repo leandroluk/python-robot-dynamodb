@@ -133,3 +133,51 @@ class TestScanQuery:
     def test_query_returns_empty_list_when_no_items(self, lib, mock_table):
         mock_table.query.return_value = {}
         assert lib.query_dynamodb_table("orders", "id = :id", {":id": "x"}) == []
+
+
+class TestBulkOps:
+    def test_truncate_deletes_all_items_by_key(self, lib, mock_table):
+        mock_table.scan.return_value = {
+            "Items": [{"id": "1", "extra": "x"}, {"id": "2", "extra": "y"}]
+        }
+        mock_table.key_schema = [{"AttributeName": "id", "KeyType": "HASH"}]
+        batch = MagicMock()
+        mock_table.batch_writer.return_value.__enter__ = MagicMock(return_value=batch)
+        mock_table.batch_writer.return_value.__exit__ = MagicMock(return_value=False)
+
+        lib.truncate_dynamodb_table("orders")
+
+        assert batch.delete_item.call_count == 2
+        batch.delete_item.assert_any_call(Key={"id": "1"})
+        batch.delete_item.assert_any_call(Key={"id": "2"})
+
+    def test_truncate_empty_table_does_nothing(self, lib, mock_table):
+        mock_table.scan.return_value = {"Items": []}
+        mock_table.key_schema = [{"AttributeName": "id", "KeyType": "HASH"}]
+        batch = MagicMock()
+        mock_table.batch_writer.return_value.__enter__ = MagicMock(return_value=batch)
+        mock_table.batch_writer.return_value.__exit__ = MagicMock(return_value=False)
+
+        lib.truncate_dynamodb_table("orders")
+
+        batch.delete_item.assert_not_called()
+
+    def test_batch_write_puts_all_items(self, lib, mock_table):
+        batch = MagicMock()
+        mock_table.batch_writer.return_value.__enter__ = MagicMock(return_value=batch)
+        mock_table.batch_writer.return_value.__exit__ = MagicMock(return_value=False)
+
+        lib.batch_write_dynamodb_items("orders", [{"id": "1"}, {"id": "2"}])
+
+        assert batch.put_item.call_count == 2
+        batch.put_item.assert_any_call(Item={"id": "1"})
+        batch.put_item.assert_any_call(Item={"id": "2"})
+
+    def test_batch_write_empty_list_does_nothing(self, lib, mock_table):
+        batch = MagicMock()
+        mock_table.batch_writer.return_value.__enter__ = MagicMock(return_value=batch)
+        mock_table.batch_writer.return_value.__exit__ = MagicMock(return_value=False)
+
+        lib.batch_write_dynamodb_items("orders", [])
+
+        batch.put_item.assert_not_called()

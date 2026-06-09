@@ -120,3 +120,21 @@ class DynamoDbLibrary:
         if expression_attribute_names:
             kwargs["ExpressionAttributeNames"] = expression_attribute_names
         return self._table(table_name).query(**kwargs).get("Items", [])
+
+    @keyword
+    def truncate_dynamodb_table(self, table_name: str) -> None:
+        table = self._table(table_name)
+        key_names = {k["AttributeName"] for k in table.key_schema}
+        items = table.scan().get("Items", [])
+        with table.batch_writer() as batch:
+            for item in items:
+                batch.delete_item(Key={k: v for k, v in item.items() if k in key_names})
+
+    @keyword
+    def batch_write_dynamodb_items(
+        self, table_name: str, items: list[dict[str, Any]]
+    ) -> None:
+        table = self._table(table_name)
+        with table.batch_writer() as batch:
+            for item in items:
+                batch.put_item(Item=item)
